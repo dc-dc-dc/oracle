@@ -1,0 +1,42 @@
+#!/usr/bin/python3
+
+import os, platform, json, argparse
+
+# TODO: OPENCL, CUDA, ROCM, METAL
+
+
+
+def main(json_output=False):
+    info = {
+        "os": platform.system(),
+        "release": platform.release(),
+        "version": platform.version(),
+        "architecture": platform.architecture(),
+        "machine": platform.machine(),
+        "user": os.getlogin(),
+        "env": dict(os.environ),
+        "path": os.environ["PATH"],
+        "home": os.environ["HOME"],
+        "python": platform.python_version(),
+        "hostname": platform.node(),
+        "libc": platform.libc_ver(),
+        "cpu": {
+            "cores": os.cpu_count(),
+            "name": platform.processor(),
+        },
+        "memory": {
+            "total": os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES'),
+        }
+    }
+
+    if json_output:
+        print(json.dumps(info))
+    else:
+        print(info)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Get system information", prog="oracle")
+    parser.add_argument("-j", "--json", action="store_true", help="Output as JSON")
+    args = parser.parse_args()
+    
+    main(args.json)
