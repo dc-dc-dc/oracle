@@ -1,12 +1,132 @@
 #!/usr/bin/python3
 
-import os, platform, json, argparse
+import os, platform, json, argparse, ctypes, sys
 
-# TODO: OPENCL, CUDA, ROCM, METAL
+def rocm():
+    pass
 
+def metal():
+    pass
 
+def cuda():
+    pass 
 
-def main(json_output=False):
+def opencl_wrap(method: str, c: int):
+    if c != 0:
+        sys.stderr.write(f"Error: {method} failed with error code {c}\n")
+        return None
+
+cl_device_map = {
+    1: "CL_DEVICE_TYPE_DEFAULT",
+    2: "CL_DEVICE_TYPE_CPU",
+    4: "CL_DEVICE_TYPE_GPU",
+    8: "CL_DEVICE_TYPE_ACCELERATOR",
+    16: "CL_DEVICE_TYPE_CUSTOM",
+}
+
+def __clGetPlatformInfo(_clGetPlatformInfo, platform_id, param_name):
+    name_size = ctypes.c_uint()
+    opencl_wrap("clGetPlatformInfo", _clGetPlatformInfo(platform_id, param_name, None, None, ctypes.byref(name_size)))
+    name = (ctypes.c_char * name_size.value)()
+    opencl_wrap("clGetPlatformInfo", _clGetPlatformInfo(platform_id, param_name, name_size.value, ctypes.byref(name), None))
+    return name.value.decode("utf-8")
+
+def __clGetDeviceInfoStr(_clGetDeviceInfo, device_id, param_name):
+    name_size = ctypes.c_uint()
+    opencl_wrap("clGetDeviceInfo", _clGetDeviceInfo(device_id, param_name, None, None, ctypes.byref(name_size)))
+    name = (ctypes.c_char * name_size.value)()
+    opencl_wrap("clGetDeviceInfo", _clGetDeviceInfo(device_id, param_name, name_size.value, ctypes.byref(name), None))
+    return name.value.decode("utf-8")
+
+def __clGetDeviceInfoInt(_clGetDeviceInfo, device_id, param_name):
+    name = ctypes.c_uint()
+    opencl_wrap("clGetDeviceInfo", _clGetDeviceInfo(device_id, param_name, 32, ctypes.byref(name), None))
+    return name.value
+
+def __clGetDeviceInfoBool(_clGetDeviceInfo, device_id, param_name):
+    name = ctypes.c_bool()
+    opencl_wrap("clGetDeviceInfo", _clGetDeviceInfo(device_id, param_name, 32, ctypes.byref(name), None))
+    return name.value
+
+def __clGetDeviceInfoSize(_clGetDeviceInfo, device_id, param_name):
+    name = ctypes.c_size_t()
+    opencl_wrap("clGetDeviceInfo", _clGetDeviceInfo(device_id, param_name, 64, ctypes.byref(name), None))
+    return name.value
+
+def __clGetDeviceInfoLong(_clGetDeviceInfo, device_id, param_name):
+    name = ctypes.c_long()
+    opencl_wrap("clGetDeviceInfo", _clGetDeviceInfo(device_id, param_name, 64, ctypes.byref(name), None))
+    return name.value
+
+def _opencl():
+    try:
+        opencl = ctypes.cdll.LoadLibrary("/System/Library/Frameworks/OpenCL.framework/OpenCL" if platform.system() == "Darwin" else "libOpenCL.so")
+        _clGetDeviceInfo = opencl["clGetDeviceInfo"]
+        _clGetDeviceIDs = opencl["clGetDeviceIDs"]
+        _clGetPlatformIDs = opencl["clGetPlatformIDs"]
+        _clGetPlatformInfo = opencl["clGetPlatformInfo"]
+        platform_count = ctypes.c_uint()
+        opencl_wrap("clGetPlatformIDs", _clGetPlatformIDs(0, None, ctypes.byref(platform_count))) 
+        platform_ids = (ctypes.c_uint * platform_count.value)()
+        opencl_wrap("clGetPlatformIDs", _clGetPlatformIDs(platform_count.value, ctypes.byref(platform_ids), None))
+        _platforms = dict()
+        for platform_id in platform_ids:
+            temp = {
+                "profile": __clGetPlatformInfo(_clGetPlatformInfo, platform_id, 0x0900),
+                "version": __clGetPlatformInfo(_clGetPlatformInfo, platform_id, 0x0901),
+                "vendor": __clGetPlatformInfo(_clGetPlatformInfo, platform_id, 0x0903),
+                "name": __clGetPlatformInfo(_clGetPlatformInfo, platform_id, 0x0902),
+                "extensions": __clGetPlatformInfo(_clGetPlatformInfo, platform_id, 0x0904).split(" "),
+            }
+            device_count = ctypes.c_uint()
+            opencl_wrap("clGetDeviceIDs", _clGetDeviceIDs(platform_id, 0xFFFFFFFF, 0, None, ctypes.byref(device_count)))
+            devices = (ctypes.c_uint * device_count.value)()
+            opencl_wrap("clGetDeviceIDs", _clGetDeviceIDs(platform_id, 0xFFFFFFFF, device_count.value, ctypes.byref(devices), None))
+            _devices = dict()
+            for i in devices:
+                _devices[i] = {
+                    "name": __clGetDeviceInfoStr(_clGetDeviceInfo, i, 0x102B),
+                    "vendor": __clGetDeviceInfoStr(_clGetDeviceInfo, i, 0x102C),
+                    "vendor_id": __clGetDeviceInfoInt(_clGetDeviceInfo, i, 0x1001),
+                    "version": __clGetDeviceInfoStr(_clGetDeviceInfo, i, 0x102F),
+                    "driver": __clGetDeviceInfoStr(_clGetDeviceInfo, i, 0x102D),
+                    "profile": __clGetDeviceInfoStr(_clGetDeviceInfo, i, 0x102E),
+                    "extensions": [i for i in __clGetDeviceInfoStr(_clGetDeviceInfo, i, 0x1030).split(" ") if i],
+                    "type": cl_device_map[__clGetDeviceInfoInt(_clGetDeviceInfo, i, 0x1000)],
+                    "compute_units": __clGetDeviceInfoInt(_clGetDeviceInfo, i, 0x1002),
+                    "max_work_item_dimensions": __clGetDeviceInfoInt(_clGetDeviceInfo, i, 0x1003),
+                    "max_work_group_size": __clGetDeviceInfoInt(_clGetDeviceInfo, i, 0x1004),
+                    "available": __clGetDeviceInfoBool(_clGetDeviceInfo, i, 0x1027),
+                    "compiler_available": __clGetDeviceInfoBool(_clGetDeviceInfo, i, 0x1028),
+                    "endian_little": __clGetDeviceInfoBool(_clGetDeviceInfo, i, 0x1026),
+                    "image_support": __clGetDeviceInfoBool(_clGetDeviceInfo, i, 0x1016),
+                    "image2d_max_width": __clGetDeviceInfoSize(_clGetDeviceInfo, i, 0x1017),
+                    "image2d_max_height": __clGetDeviceInfoSize(_clGetDeviceInfo, i, 0x1018),
+                    "image3d_max_width": __clGetDeviceInfoSize(_clGetDeviceInfo, i, 0x1019),
+                    "image3d_max_height": __clGetDeviceInfoSize(_clGetDeviceInfo, i, 0x1014),
+                    "image3d_max_depth": __clGetDeviceInfoSize(_clGetDeviceInfo, i, 0x1015),
+                    "max_parameter_size": __clGetDeviceInfoSize(_clGetDeviceInfo, i, 0x1017),
+                    "max_samplers": __clGetDeviceInfoInt(_clGetDeviceInfo, i, 0x1018),
+                    "max_constant_args": __clGetDeviceInfoInt(_clGetDeviceInfo, i, 0x1021),
+                    "max_constant_buffer_size": __clGetDeviceInfoLong(_clGetDeviceInfo, i, 0x1020),
+                    "vector_sizes": {
+                        "char": __clGetDeviceInfoInt(_clGetDeviceInfo, i, 0x1006),
+                        "short": __clGetDeviceInfoInt(_clGetDeviceInfo, i, 0x1007),
+                        "int": __clGetDeviceInfoInt(_clGetDeviceInfo, i, 0x1008),
+                        "long": __clGetDeviceInfoInt(_clGetDeviceInfo, i, 0x1009),
+                        "half": __clGetDeviceInfoInt(_clGetDeviceInfo, i, 0x1034),
+                        "float": __clGetDeviceInfoInt(_clGetDeviceInfo, i, 0x100A),
+                        "double": __clGetDeviceInfoInt(_clGetDeviceInfo, i, 0x100B),
+                    }
+                }
+            temp["devices"] = _devices
+            _platforms[platform_id] = temp 
+        return _platforms
+    except Exception as e:
+        print(e)
+        return None        
+
+def main(error=False, opencl=False):
     info = {
         "os": platform.system(),
         "release": platform.release(),
@@ -26,17 +146,21 @@ def main(json_output=False):
         },
         "memory": {
             "total": os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES'),
-        }
+        },
+        "opencl": _opencl(),
+        "metal": metal(),
+        "rocm": rocm(),
+        "cuda": cuda(),
     }
 
-    if json_output:
-        print(json.dumps(info))
-    else:
-        print(info)
+    if opencl: print(json.dumps(info["opencl"], indent=2))
+    else: print(json.dumps(info))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Get system information", prog="oracle")
     parser.add_argument("-j", "--json", action="store_true", help="Output as JSON")
+    parser.add_argument("-e", "--error", action="store_true", help="Output errors to stderr")
+    parser.add_argument("--opencl", action="store_true", help="Get OpenCL information")
     args = parser.parse_args()
     
-    main(args.json)
+    main(error=args.error, opencl=args.opencl)
