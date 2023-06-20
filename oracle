@@ -17,7 +17,7 @@ def error_wrap(method: str, c: int):
 def rocm():
     pass
 
-def metal():
+def _metal():
     pass
 
 class cudaDeviceProp(ctypes.Structure):
@@ -310,7 +310,7 @@ def extract():
             "total": os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') if not WINDOWS else 0,
         },
         "opencl": _opencl(),
-        "metal": metal(),
+        "metal": _metal(),
         "rocm": rocm(),
         "cuda": _cuda(),
     }
@@ -321,6 +321,7 @@ if __name__ == "__main__":
     parser.add_argument("-j", "--json", action="store_true", help="Output as JSON")
     parser.add_argument("-e", "--error", action="store_true", help="Output errors to stderr")
     parser.add_argument("--opencl", action="store_true", help="Get OpenCL information")
+    parser.add_argument("--metal", action="store_true", help="Get Metal information")
     parser.add_argument("--cuda", action="store_true", help="Get CUDA information")
     args = parser.parse_args()
     
