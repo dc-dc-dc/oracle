@@ -1,19 +1,146 @@
 #!/usr/bin/python3
 import os, platform, json, argparse, ctypes, sys
 
+OSX=platform.system() == "Darwin"
+WINDOWS=platform.system() == "Windows"
+LOG_ERROR=False
+
+def error_wrap(method: str, c: int):
+    if c != 0:
+        if LOG_ERROR: sys.stderr.write(f"Error: {method} failed with error code {c}\n")
+        return None
+
 def rocm():
     pass
 
 def metal():
     pass
 
-def cuda():
-    pass 
+class cudaDeviceProp(ctypes.Structure):
+    _fields_ = [
+        ("name", ctypes.c_char*256),
+        ("uuid", ctypes.c_char*16),
+        ("luid", ctypes.c_char*8),
+        ("luidDeviceNodeMask", ctypes.c_uint),
+        ("totalGlobalMem", ctypes.c_size_t),
+        ("sharedMemPerBlock", ctypes.c_size_t),
+        ("regsPerBlock", ctypes.c_int),
+        ("warpSize", ctypes.c_int),
+        ("memPitch", ctypes.c_size_t),
+        ("maxThreadsPerBlock", ctypes.c_int),
+        ("maxThreadsDim", ctypes.c_int*3),
+        ("maxGridSize", ctypes.c_int*3),
+        ("clockRate", ctypes.c_int),
+        ("totalConstMem", ctypes.c_size_t),
+        ("major", ctypes.c_int),
+        ("minor", ctypes.c_int),
+        ("textureAlignment", ctypes.c_size_t),
+        ("texturePitchAlignment", ctypes.c_size_t),
+        ("deviceOverlap", ctypes.c_int),
+        ("multiProcessorCount", ctypes.c_int),
+        ("kernelExecTimeoutEnabled", ctypes.c_int),
+        ("integrated", ctypes.c_int),
+        ("canMapHostMemory", ctypes.c_int),
+        ("computeMode", ctypes.c_int),
+        ("maxTexture1D", ctypes.c_int),
+        ("maxTexture1DMipmap", ctypes.c_int),
+        ("maxTexture1DLinear", ctypes.c_int),
+        ("maxTexture2D", ctypes.c_int*2),
+        ("maxTexture2DMipmap", ctypes.c_int*2),
+        ("maxTexture2DLinear", ctypes.c_int*3),
+        ("maxTexture2DGather", ctypes.c_int*2),
+        ("maxTexture3D", ctypes.c_int*3),
+        ("maxTexture3DAlt", ctypes.c_int*3),
+        ("maxTextureCubemap", ctypes.c_int),
+        ("maxTexture1DLayered", ctypes.c_int*2),
+        ("maxTexture2DLayered", ctypes.c_int*3),
+        ("maxTextureCubemapLayered", ctypes.c_int*2),
+        ("maxSurface1D", ctypes.c_int),
+        ("maxSurface2D", ctypes.c_int*2),
+        ("maxSurface3D", ctypes.c_int*3),
+        ("maxSurface1DLayered", ctypes.c_int*2),
+        ("maxSurface2DLayered", ctypes.c_int*3),
+        ("maxSurfaceCubemap", ctypes.c_int),
+        ("maxSurfaceCubemapLayered", ctypes.c_int*2),
+        ("surfaceAlignment", ctypes.c_size_t),
+        ("concurrentKernels", ctypes.c_int),
+        ("ECCEnabled", ctypes.c_int),
+        ("pciBusID", ctypes.c_int),
+        ("pciDeviceID", ctypes.c_int),
+        ("pciDomainID", ctypes.c_int),
+        ("tccDriver", ctypes.c_int),
+        ("asyncEngineCount", ctypes.c_int),
+        ("unifiedAddressing", ctypes.c_int),
+        ("memoryClockRate", ctypes.c_int),
+        ("memoryBusWidth", ctypes.c_int),
+        ("l2CacheSize", ctypes.c_int),
+        ("persistingL2CacheMaxSize", ctypes.c_size_t),
+        ("maxThreadsPerMultiProcessor", ctypes.c_int),
+        ("streamPrioritiesSupported", ctypes.c_int),
+        ("globalL1CacheSupported", ctypes.c_int),
+        ("localL1CacheSupported", ctypes.c_int),
+        ("sharedMemPerMultiprocessor", ctypes.c_size_t),
+        ("regsPerMultiprocessor", ctypes.c_int),
+        ("managedMemory", ctypes.c_int),
+        ("isMultiGpuBoard", ctypes.c_int),
+        ("multiGpuBoardGroupID", ctypes.c_int),
+        ("hostNativeAtomicSupported", ctypes.c_int),
+        ("singleToDoublePrecisionPerfRatio", ctypes.c_int),
+        ("pageableMemoryAccess", ctypes.c_int),
+        ("concurrentManagedAccess", ctypes.c_int),
+        ("computePreemptionSupported", ctypes.c_int),
+        ("canUseHostPointerForRegisteredMem", ctypes.c_int),
+        ("cooperativeLaunch", ctypes.c_int),
+        ("cooperativeMultiDeviceLaunch", ctypes.c_int),
+        ("sharedMemPerBlockOptin", ctypes.c_size_t),
+        ("pageableMemoryAccessUsesHostPageTables", ctypes.c_int),
+        ("directManagedMemAccessFromHost", ctypes.c_int),
+        ("maxBlocksPerMultiProcessor", ctypes.c_int),
+        ("accessPolicyMaxWindowSize", ctypes.c_int),
+        ("reservedSharedMemPerBlock", ctypes.c_size_t),
+        ("hostRegisterSupported", ctypes.c_int),
+        ("sparseCudaArraySupported", ctypes.c_int),
+        ("hostRegisterReadOnlySupported", ctypes.c_int),
+        ("timelineSemaphoreInteropSupported", ctypes.c_int),
+        ("memoryPoolsSupported", ctypes.c_int),
+        ("gpuDirectRDMASupported", ctypes.c_int),
+        ("gpuDirectRDMAFlushWritesOptions", ctypes.c_uint),
+        ("gpuDirectRDMAWritesOrdering", ctypes.c_int),
+        ("memoryPoolSupportedHandleTypes", ctypes.c_uint),
+        ("deferredMappingCudaArraySupported", ctypes.c_int),
+        ("ipcEventSupported", ctypes.c_int),
+        ("clusterLaunch", ctypes.c_int),
+        ("unifiedFunctionPointers", ctypes.c_int),
+        ("reserved", ctypes.c_int*63),
+    ]
 
-def opencl_wrap(method: str, c: int):
-    if c != 0:
-        sys.stderr.write(f"Error: {method} failed with error code {c}\n")
+
+def extract_val(val): return ([x for x in val] if hasattr(val, "__len__") else val)
+def getdict(struct): return dict((field, extract_val(getattr(struct, field))) for field, _ in struct._fields_)
+def ascii_str(s): return ''.join(chr(i) for i in s)
+
+def _cuda():
+    try:
+        cuda = ctypes.cdll.LoadLibrary("C://Program Files//NVIDIA GPU Computing Toolkit//CUDA//v12.0//bin//cudart64_12.dll" if WINDOWS else "libcuda.so")
+        _cudaGetDeviceCount = cuda["cudaGetDeviceCount"]
+        _cudaGetDeviceProperties = cuda["cudaGetDeviceProperties"]
+        device_count = ctypes.c_int()
+        error_wrap("cudaGetDeviceCount", _cudaGetDeviceCount(ctypes.byref(device_count)))
+        _devices = dict()
+        for i in range(device_count.value):
+            props = cudaDeviceProp()
+            error_wrap("cudaGetDeviceProperties", _cudaGetDeviceProperties(ctypes.byref(props), i))
+            temp = getdict(props)
+            temp["name"] = ascii_str(temp["name"])
+            temp['uuid'] = ascii_str(temp['uuid'])
+            temp['luid'] = ascii_str(temp['luid'])
+            _devices[i] = temp
+        return _devices
+    except Exception as e:
+        if LOG_ERROR: sys.stderr.write(f"{e}\n")
         return None
+
+
 
 cl_device_map = {
     1: "CL_DEVICE_TYPE_DEFAULT",
@@ -25,19 +152,19 @@ cl_device_map = {
 
 def __clGetPlatformInfo(_clGetPlatformInfo, platform_id, param_name):
     name_size = ctypes.c_uint()
-    opencl_wrap("clGetPlatformInfo", _clGetPlatformInfo(platform_id, param_name, None, None, ctypes.byref(name_size)))
+    error_wrap("clGetPlatformInfo", _clGetPlatformInfo(platform_id, param_name, None, None, ctypes.byref(name_size)))
     name = (ctypes.c_char * name_size.value)()
-    opencl_wrap("clGetPlatformInfo", _clGetPlatformInfo(platform_id, param_name, name_size.value, ctypes.byref(name), None))
+    error_wrap("clGetPlatformInfo", _clGetPlatformInfo(platform_id, param_name, name_size.value, ctypes.byref(name), None))
     return name.value.decode("utf-8")
 
 
 def __clGetDeviceInfo(_clGetDeviceInfo, device_id, param_name, size, ctype: ctypes._SimpleCData): 
-    opencl_wrap("clGetDeviceInfo", _clGetDeviceInfo(device_id, param_name, size, ctypes.byref(ctype), None))
+    error_wrap("clGetDeviceInfo", _clGetDeviceInfo(device_id, param_name, size, ctypes.byref(ctype), None))
     return ctype
 
 def __clGetDeviceInfoStr(_clGetDeviceInfo, device_id, param_name):
     name_size = ctypes.c_uint()
-    opencl_wrap("clGetDeviceInfo", _clGetDeviceInfo(device_id, param_name, None, None, ctypes.byref(name_size)))
+    error_wrap("clGetDeviceInfo", _clGetDeviceInfo(device_id, param_name, None, None, ctypes.byref(name_size)))
     return __clGetDeviceInfo(_clGetDeviceInfo, device_id, param_name, name_size.value, (ctypes.c_char * name_size.value)()).value.decode("utf-8")
 
 def __clGetDeviceInfoInt(_clGetDeviceInfo, device_id, param_name): return __clGetDeviceInfo(_clGetDeviceInfo, device_id, param_name, 8, ctypes.c_uint()).value
@@ -47,15 +174,15 @@ def __clGetDeviceInfoLong(_clGetDeviceInfo, device_id, param_name): return __clG
 
 def _opencl():
     try:
-        opencl = ctypes.cdll.LoadLibrary("/System/Library/Frameworks/OpenCL.framework/OpenCL" if platform.system() == "Darwin" else "libOpenCL.so")
+        opencl = ctypes.cdll.LoadLibrary("/System/Library/Frameworks/OpenCL.framework/OpenCL" if OSX else "libOpenCL.so")
         _clGetDeviceInfo = opencl["clGetDeviceInfo"]
         _clGetDeviceIDs = opencl["clGetDeviceIDs"]
         _clGetPlatformIDs = opencl["clGetPlatformIDs"]
         _clGetPlatformInfo = opencl["clGetPlatformInfo"]
         platform_count = ctypes.c_uint()
-        opencl_wrap("clGetPlatformIDs", _clGetPlatformIDs(0, None, ctypes.byref(platform_count))) 
+        error_wrap("clGetPlatformIDs", _clGetPlatformIDs(0, None, ctypes.byref(platform_count))) 
         platform_ids = (ctypes.c_uint * platform_count.value)()
-        opencl_wrap("clGetPlatformIDs", _clGetPlatformIDs(platform_count.value, ctypes.byref(platform_ids), None))
+        error_wrap("clGetPlatformIDs", _clGetPlatformIDs(platform_count.value, ctypes.byref(platform_ids), None))
         _platforms = dict()
         for platform_id in platform_ids:
             temp = {
@@ -66,9 +193,9 @@ def _opencl():
                 "extensions": __clGetPlatformInfo(_clGetPlatformInfo, platform_id, 0x0904).split(" "),
             }
             device_count = ctypes.c_uint()
-            opencl_wrap("clGetDeviceIDs", _clGetDeviceIDs(platform_id, 0xFFFFFFFF, 0, None, ctypes.byref(device_count)))
+            error_wrap("clGetDeviceIDs", _clGetDeviceIDs(platform_id, 0xFFFFFFFF, 0, None, ctypes.byref(device_count)))
             devices = (ctypes.c_uint * device_count.value)()
-            opencl_wrap("clGetDeviceIDs", _clGetDeviceIDs(platform_id, 0xFFFFFFFF, device_count.value, ctypes.byref(devices), None))
+            error_wrap("clGetDeviceIDs", _clGetDeviceIDs(platform_id, 0xFFFFFFFF, device_count.value, ctypes.byref(devices), None))
             _devices = dict()
             for i in devices:
                 _devices[i] = {
@@ -110,11 +237,11 @@ def _opencl():
             _platforms[platform_id] = temp 
         return _platforms
     except Exception as e:
-        print(e)
+        if LOG_ERROR: sys.stderr.write(f"{e}\n")
         return None        
 
-def main(error=False, opencl=False):
-    info = {
+def extract():
+    return {
         "os": platform.system(),
         "release": platform.release(),
         "version": platform.version(),
@@ -126,28 +253,31 @@ def main(error=False, opencl=False):
         "home": os.environ["HOME"],
         "python": platform.python_version(),
         "hostname": platform.node(),
-        "libc": platform.libc_ver(),
+        "libc": platform.libc_ver() if not WINDOWS else None,
         "cpu": {
             "cores": os.cpu_count(),
             "name": platform.processor(),
         },
         "memory": {
-            "total": os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES'),
+            "total": os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') if not WINDOWS else 0,
         },
         "opencl": _opencl(),
         "metal": metal(),
         "rocm": rocm(),
-        "cuda": cuda(),
+        "cuda": _cuda(),
     }
 
-    if opencl: print(json.dumps(info["opencl"], indent=2))
-    else: print(json.dumps(info))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Get system information", prog="oracle")
     parser.add_argument("-j", "--json", action="store_true", help="Output as JSON")
     parser.add_argument("-e", "--error", action="store_true", help="Output errors to stderr")
     parser.add_argument("--opencl", action="store_true", help="Get OpenCL information")
+    parser.add_argument("--cuda", action="store_true", help="Get CUDA information")
     args = parser.parse_args()
     
-    main(error=args.error, opencl=args.opencl)
+    dets = extract()
+    LOG_ERROR = args.error
+    if args.opencl: sys.stdout.write(json.dumps(dets["opencl"], indent=2))
+    if args.cuda: sys.stdout.write(json.dumps(dets["cuda"], indent=2))
+    else: sys.stdout.write(json.dumps(dets, indent=2))
