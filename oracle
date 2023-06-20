@@ -276,8 +276,10 @@ if __name__ == "__main__":
     parser.add_argument("--cuda", action="store_true", help="Get CUDA information")
     args = parser.parse_args()
     
-    dets = extract()
     LOG_ERROR = args.error
-    if args.opencl: sys.stdout.write(json.dumps(dets["opencl"], indent=2))
-    if args.cuda: sys.stdout.write(json.dumps(dets["cuda"], indent=2))
-    else: sys.stdout.write(json.dumps(dets, indent=2))
+    if args.opencl: dets=_opencl()
+    elif args.metal: dets=_metal()
+    elif args.cuda: dets=_cuda()
+    else: dets=extract() 
+    
+    sys.stdout.write(json.dumps(dets, indent=2))
