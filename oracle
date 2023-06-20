@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-
 import os, platform, json, argparse, ctypes, sys
 
 def rocm():
@@ -31,32 +30,20 @@ def __clGetPlatformInfo(_clGetPlatformInfo, platform_id, param_name):
     opencl_wrap("clGetPlatformInfo", _clGetPlatformInfo(platform_id, param_name, name_size.value, ctypes.byref(name), None))
     return name.value.decode("utf-8")
 
+
+def __clGetDeviceInfo(_clGetDeviceInfo, device_id, param_name, size, ctype: ctypes._SimpleCData): 
+    opencl_wrap("clGetDeviceInfo", _clGetDeviceInfo(device_id, param_name, size, ctypes.byref(ctype), None))
+    return ctype
+
 def __clGetDeviceInfoStr(_clGetDeviceInfo, device_id, param_name):
     name_size = ctypes.c_uint()
     opencl_wrap("clGetDeviceInfo", _clGetDeviceInfo(device_id, param_name, None, None, ctypes.byref(name_size)))
-    name = (ctypes.c_char * name_size.value)()
-    opencl_wrap("clGetDeviceInfo", _clGetDeviceInfo(device_id, param_name, name_size.value, ctypes.byref(name), None))
-    return name.value.decode("utf-8")
+    return __clGetDeviceInfo(_clGetDeviceInfo, device_id, param_name, name_size.value, (ctypes.c_char * name_size.value)()).value.decode("utf-8")
 
-def __clGetDeviceInfoInt(_clGetDeviceInfo, device_id, param_name):
-    name = ctypes.c_uint()
-    opencl_wrap("clGetDeviceInfo", _clGetDeviceInfo(device_id, param_name, 32, ctypes.byref(name), None))
-    return name.value
-
-def __clGetDeviceInfoBool(_clGetDeviceInfo, device_id, param_name):
-    name = ctypes.c_bool()
-    opencl_wrap("clGetDeviceInfo", _clGetDeviceInfo(device_id, param_name, 32, ctypes.byref(name), None))
-    return name.value
-
-def __clGetDeviceInfoSize(_clGetDeviceInfo, device_id, param_name):
-    name = ctypes.c_size_t()
-    opencl_wrap("clGetDeviceInfo", _clGetDeviceInfo(device_id, param_name, 64, ctypes.byref(name), None))
-    return name.value
-
-def __clGetDeviceInfoLong(_clGetDeviceInfo, device_id, param_name):
-    name = ctypes.c_long()
-    opencl_wrap("clGetDeviceInfo", _clGetDeviceInfo(device_id, param_name, 64, ctypes.byref(name), None))
-    return name.value
+def __clGetDeviceInfoInt(_clGetDeviceInfo, device_id, param_name): return __clGetDeviceInfo(_clGetDeviceInfo, device_id, param_name, 8, ctypes.c_uint()).value
+def __clGetDeviceInfoBool(_clGetDeviceInfo, device_id, param_name): return __clGetDeviceInfo(_clGetDeviceInfo, device_id, param_name, 4, ctypes.c_bool()).value
+def __clGetDeviceInfoSize(_clGetDeviceInfo, device_id, param_name): return __clGetDeviceInfo(_clGetDeviceInfo, device_id, param_name, 16, ctypes.c_size_t()).value
+def __clGetDeviceInfoLong(_clGetDeviceInfo, device_id, param_name): return __clGetDeviceInfo(_clGetDeviceInfo, device_id, param_name, 16, ctypes.c_long()).value
 
 def _opencl():
     try:
