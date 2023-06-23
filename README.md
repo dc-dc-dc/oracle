@@ -13,22 +13,22 @@ Supports:
 ## Usage
 
 ```bash
-./oracle
+./oracle.py
 ```
 
 Want a clinfo like output?
 ```bash
-./oracle --opencl
+./oracle.py --opencl
 ```
 
 Want to only get the cuda ouput?
 ```bash
-./oracle --cuda
+./oracle.py --cuda
 ```
 
 ## Testing
 
 Compare the output of oracle to clinfo for opencl
 ```bash
-python3 clinfo.py
+python3 ./extra/clinfo.py
 ```

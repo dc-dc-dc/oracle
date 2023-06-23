@@ -17,7 +17,7 @@ def error_wrap(method: str, c: int):
 def rocm():
     pass
 
-def _metal():
+def metal():
     pass
 
 class cudaDeviceProp(ctypes.Structure):
@@ -120,7 +120,7 @@ class cudaDeviceProp(ctypes.Structure):
 
 
 
-def _cuda():
+def cuda():
     try:
         cuda = ctypes.cdll.LoadLibrary("C://Program Files//NVIDIA GPU Computing Toolkit//CUDA//v12.0//bin//cudart64_12.dll" if WINDOWS else "libcuda.so")
         _cudaGetDeviceCount = cuda["cudaGetDeviceCount"]
@@ -186,7 +186,7 @@ def __clGetDeviceInfoLong(_clGetDeviceInfo, device_id, param_name): return __clG
 def __clGetDeviceInfoLongArr(_clGetDeviceInfo, device_id, param_name, size): return __clGetDeviceInfo(_clGetDeviceInfo, device_id, param_name, 16*size, (ctypes.c_long*size)())[:]
 
 
-def _opencl():
+def opencl():
     try:
         opencl = ctypes.cdll.LoadLibrary("/System/Library/Frameworks/OpenCL.framework/OpenCL" if OSX else "libOpenCL.so")
         _clGetDeviceInfo = opencl["clGetDeviceInfo"]
@@ -309,10 +309,10 @@ def extract():
         "memory": {
             "total": os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') if not WINDOWS else 0,
         },
-        "opencl": _opencl(),
-        "metal": _metal(),
+        "opencl": opencl(),
+        "metal": metal(),
         "rocm": rocm(),
-        "cuda": _cuda(),
+        "cuda": cuda(),
     }
 
 
@@ -326,9 +326,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     LOG_ERROR = args.error
-    if args.opencl: dets=_opencl()
-    elif args.metal: dets=_metal()
-    elif args.cuda: dets=_cuda()
+    if args.opencl: dets=opencl()
+    elif args.metal: dets=metal()
+    elif args.cuda: dets=cuda()
     else: dets=extract() 
     
     sys.stdout.write(json.dumps(dets, indent=2)+"\n")

@@ -22,7 +22,7 @@ for line in lines:
         value = line[len(name):].strip()
         if name != "" and value != "": clinfo_res[name] = value
 
-oracle_res = json.loads(subprocess.check_output(['./oracle', '--opencl']).decode("utf-8"))
+oracle_res = json.loads(subprocess.check_output(['./oracle.py', '--opencl']).decode("utf-8"))
 def get_platform_oracle(platform: str): # -> dict
     for _,p in oracle_res.items():
         if p["name"] == platform: return p
