@@ -78,7 +78,7 @@ class cudaDeviceProp(ctypes.Structure):
         ("memoryClockRate", ctypes.c_int),
         ("memoryBusWidth", ctypes.c_int),
         ("l2CacheSize", ctypes.c_int),
-        ("persistingL2CacheMaxSize", ctypes.c_size_t),
+        ("persistingL2CacheMaxSize", ctypes.c_int),
         ("maxThreadsPerMultiProcessor", ctypes.c_int),
         ("streamPrioritiesSupported", ctypes.c_int),
         ("globalL1CacheSupported", ctypes.c_int),
@@ -115,7 +115,6 @@ class cudaDeviceProp(ctypes.Structure):
         ("ipcEventSupported", ctypes.c_int),
         ("clusterLaunch", ctypes.c_int),
         ("unifiedFunctionPointers", ctypes.c_int),
-        ("reserved", ctypes.c_int*63),
     ]
 
 
