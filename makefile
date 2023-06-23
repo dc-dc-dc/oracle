@@ -1,3 +1,3 @@
 metal:
-	clang -lobjc -framework Metal -framework CoreGraphics -framework Foundation extra/metal.m -o objc && ./objc 
-	rm objc
+	clang -lobjc -framework Metal -framework CoreGraphics -framework Foundation extra/metal.m -o metal-info && ./metal-info 
+	rm metal-info
