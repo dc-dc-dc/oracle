@@ -13,7 +13,7 @@
 #define PRINTL_SIZE_T(name, val) printf("%-50s: %zu\n", name, val)
 
 #define CUDA_ERROR_WRAPPER(x) do { cudaError_t err = x; if (err != cudaSuccess) { printf("CUDA error: %s\n", cudaGetErrorString(err)); exit(1); } } while (0)
-#define NVML_ERROR_WRAPPER(x) do { nvmlReturn_t err = x; if (err != NVML_SUCCESS) { printf("NVML error: %s\n", nvmlErrorString(err)); goto NVML_ERROR; } } while (0)
+#define NVML_ERROR_WRAPPER(x) do { nvmlReturn_t err = x; if (err != NVML_SUCCESS) { printf("NVML error: %s\n", nvmlErrorString(err));  goto NVML_ERROR; } } while (0)
 
 void print_props(int device_id) {
     struct cudaDeviceProp prop;
@@ -132,7 +132,10 @@ int main(int argc, char **argv) {
         char name[NVML_DEVICE_NAME_BUFFER_SIZE];
         NVML_ERROR_WRAPPER(nvmlDeviceGetName(_device, name, NVML_DEVICE_NAME_BUFFER_SIZE));
         printf("Device(%zu):\n", i);
-        PRINTL_STR("\tName", name);
+        PRINTL_STR("Name", name);
+        unsigned int fan_speed;
+        NVML_ERROR_WRAPPER(nvmlDeviceGetFanSpeed(_device, &fan_speed));
+        PRINTL_INT("Fan Speed(%):", fan_speed);
         nvmlUtilization_t _utilization;
         NVML_ERROR_WRAPPER(nvmlDeviceGetUtilizationRates(_device, &_utilization));
         printf("Utilization(%%): \n");
@@ -144,7 +147,24 @@ int main(int argc, char **argv) {
         PRINTL_SIZE_T("\tTotal", _memory.total / (1024*1024*1024));
         PRINTL_SIZE_T("\tFree", _memory.free / (1024*1024*1024));
         PRINTL_SIZE_T("\tUsed", _memory.used / (1024*1024*1024));
-
+        unsigned int pcount;
+        nvmlProcessInfo_t pinfo;
+        nvmlReturn_t res = nvmlDeviceGetGraphicsRunningProcesses(_device, &pcount, &pinfo);
+        if(res == NULL) {
+            printf("GOT NULL\n");
+            goto NVML_ERROR;
+            return 1;
+        }
+        if(res != 0) {
+            NVML_ERROR_WRAPPER(res);
+        }
+        printf("Processes(%u):\n", pcount);
+        // printf("Processes(%u):\n", process_count);
+        // for(size_t j = 0; j < *process_count; j++) {
+        //     printf("Process(%zu):\n", j);
+        //     PRINTL_UINT("\tPID", process_info[j].pid);
+        //     PRINTL_SIZE_T("\tUsed Memory", process_info[j].usedGpuMemory);
+        // }
     }   
     
     

@@ -115,13 +115,16 @@ class cudaDeviceProp(ctypes.Structure):
         ("ipcEventSupported", ctypes.c_int),
         ("clusterLaunch", ctypes.c_int),
         ("unifiedFunctionPointers", ctypes.c_int),
+        ("reserved", ctypes.c_int*63)
     ]
-
-
 
 def cuda():
     try:
-        cuda = ctypes.cdll.LoadLibrary("C://Program Files//NVIDIA GPU Computing Toolkit//CUDA//v12.0//bin//cudart64_12.dll" if WINDOWS else "libcuda.so")
+        cuda_path = os.getenv("CUDA_PATH", None)
+        if not cuda_path: 
+            if LOG_ERROR: sys.stderr.write("CUDA_PATH not set\n")
+            return None
+        cuda = ctypes.cdll.LoadLibrary(os.path.join(cuda_path, "bin", "cudart64_12.dll") if WINDOWS else "libcuda.so")
         _cudaGetDeviceCount = cuda["cudaGetDeviceCount"]
         _cudaGetDeviceProperties = cuda["cudaGetDeviceProperties"]
         device_count = ctypes.c_int()
@@ -134,6 +137,7 @@ def cuda():
             temp["name"] = ascii_str(temp["name"])
             temp['uuid'] = ascii_str(temp['uuid'])
             temp['luid'] = ascii_str(temp['luid'])
+            temp["reserved"] = None
             _devices[i] = temp
         return _devices
     except Exception as e:
@@ -141,6 +145,70 @@ def cuda():
         return None
 
 
+class nvmlUtilization(ctypes.Structure):
+    _fields_ = [
+        ("gpu", ctypes.c_uint),
+        ("memory", ctypes.c_uint),
+    ]
+class nvmlMemory(ctypes.Structure):
+    _fields_ = [
+        ("total", ctypes.c_ulonglong),
+        ("free", ctypes.c_ulonglong),
+        ("used", ctypes.c_ulonglong),
+    ]
+class nvmlProcessInfo(ctypes.Structure):
+    _fields_ = [
+        ("pid", ctypes.c_uint),
+        ("usedGpuMemory", ctypes.c_ulonglong),
+        ("gpuInstanceId", ctypes.c_uint),
+        ("computeInstanceId", ctypes.c_uint),
+    ]
+# gets nvidia gpu information
+def nvml():
+    try:
+        _nvml = ctypes.cdll.LoadLibrary(os.path.join(os.getenv("WINDIR", "C:/Windows"), "System32/nvml.dll") if WINDOWS else "libnvidia-ml.so.1")
+        _nvmlInit = _nvml["nvmlInit_v2"]
+        _nvmlShutdown = _nvml["nvmlShutdown"]
+        _nvmlDeviceGetCount = _nvml["nvmlDeviceGetCount_v2"]
+        _nvmlDeviceGetHandleByIndex = _nvml["nvmlDeviceGetHandleByIndex_v2"]
+        _nvmlDeviceGetUtilizationRates = _nvml["nvmlDeviceGetUtilizationRates"]
+        _nvmlDeviceGetMemoryInfo = _nvml["nvmlDeviceGetMemoryInfo"]
+        _nvmlDeviceGetPowerUsage = _nvml["nvmlDeviceGetPowerUsage"]
+        _nvmlDeviceGetComputeRunningProcesses = _nvml["nvmlDeviceGetComputeRunningProcesses_v3"]
+        _nvmlSystemGetProcessName = _nvml["nvmlSystemGetProcessName"]
+
+        error_wrap("nvmlInit", _nvmlInit())
+        device_count = ctypes.c_uint()
+        error_wrap("nvmlDeviceGetCount", _nvmlDeviceGetCount(ctypes.byref(device_count)))
+        res = dict()
+        for i in range(device_count.value):
+            handle = ctypes.c_void_p()
+            error_wrap("nvmlDeviceGetHandleByIndex", _nvmlDeviceGetHandleByIndex(i, ctypes.byref(handle)))
+            _utilization = nvmlUtilization()
+            error_wrap("nvmlDeviceGetUtilizationRates", _nvmlDeviceGetUtilizationRates(handle, ctypes.byref(_utilization)))
+            _memory = nvmlMemory()
+            error_wrap("nvmlDeviceGetMemoryInfo", _nvmlDeviceGetMemoryInfo(handle, ctypes.byref(_memory)))
+            _power = ctypes.c_uint()
+            error_wrap("nvmlDeviceGetPowerUsage", _nvmlDeviceGetPowerUsage(handle, ctypes.byref(_power)))
+            _infoCount = ctypes.c_uint();
+            _infos = ctypes.pointer(nvmlProcessInfo());
+            error_wrap("nvmlDeviceGetComputeRunningProcesses", _nvmlDeviceGetComputeRunningProcesses(handle, ctypes.byref(_infoCount), _infos));
+            for i in range(_infoCount.value):
+                if _infos[i].pid == 0: continue
+                _name = (ctypes.c_char * 256)()
+                error_wrap("nvmlSystemGetProcessName", _nvmlSystemGetProcessName(_infos[i].pid, _name, 256))
+                print(_name.value)
+                print(f"pid: {_infos[i].pid} usedGpuMemory: {_infos[i].usedGpuMemory}, name: {_name.value.decode('utf-8')}")
+            res[i] = {
+                "utilization": getdict(_utilization),
+                "memory": getdict(_memory),
+                "power": _power.value,
+            }
+        error_wrap("nvmlShutdown", _nvmlShutdown())
+        return res
+    except Exception as e:
+        if LOG_ERROR: sys.stderr.write(f"{e}\n")
+        return None
 
 cl_device_map = {
     1: "CL_DEVICE_TYPE_DEFAULT",
@@ -322,12 +390,14 @@ if __name__ == "__main__":
     parser.add_argument("--opencl", action="store_true", help="Get OpenCL information")
     parser.add_argument("--metal", action="store_true", help="Get Metal information")
     parser.add_argument("--cuda", action="store_true", help="Get CUDA information")
+    parser.add_argument("--nvml", action="store_true", help="Get NVML information")
     args = parser.parse_args()
     
     LOG_ERROR = args.error
     if args.opencl: dets=opencl()
     elif args.metal: dets=metal()
     elif args.cuda: dets=cuda()
+    elif args.nvml: dets=nvml()
     else: dets=extract() 
     
     sys.stdout.write(json.dumps(dets, indent=2)+"\n")
