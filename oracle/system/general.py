@@ -3,7 +3,7 @@ import os
 from oracle.util import WINDOWS
 
 
-def system():
+def info():
     return {
         "os": platform.system(),
         "release": platform.release(),
@@ -25,3 +25,6 @@ def system():
             "total": os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') if not WINDOWS else 0,
         },
     }
+
+def usage():
+    return {}

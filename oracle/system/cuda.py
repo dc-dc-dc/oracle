@@ -99,7 +99,7 @@ class cudaDeviceProp(ctypes.Structure):
         ("reserved", ctypes.c_int*63)
     ]
 
-def cuda():
+def info():
     try:
         cuda_path = os.getenv("CUDA_PATH", None)
         if not cuda_path: 
@@ -144,7 +144,7 @@ class nvmlProcessInfo(ctypes.Structure):
         ("computeInstanceId", ctypes.c_uint),
     ]
 # gets nvidia gpu information
-def nvml():
+def usage():
     try:
         _nvml = ctypes.cdll.LoadLibrary(os.path.join(os.getenv("WINDIR", "C:/Windows"), "System32/nvml.dll") if WINDOWS else "libnvidia-ml.so.1")
         _nvmlInit = _nvml["nvmlInit_v2"]

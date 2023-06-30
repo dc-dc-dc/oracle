@@ -44,7 +44,7 @@ def __clGetDeviceInfoLong(_clGetDeviceInfo, device_id, param_name): return __clG
 def __clGetDeviceInfoLongArr(_clGetDeviceInfo, device_id, param_name, size): return __clGetDeviceInfo(_clGetDeviceInfo, device_id, param_name, 16*size, (ctypes.c_long*size)())[:]
 
 
-def opencl():
+def info():
     try:
         opencl = ctypes.cdll.LoadLibrary("/System/Library/Frameworks/OpenCL.framework/OpenCL" if OSX else "libOpenCL.so")
         _clGetDeviceInfo = opencl["clGetDeviceInfo"]
@@ -145,3 +145,6 @@ def opencl():
     except Exception as e:
         if LOG_ERROR: sys.stderr.write(f"{e}\n")
         return None       
+
+def usage():
+    return None
