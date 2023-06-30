@@ -1,6 +1,5 @@
-import ctypes, sys
+import ctypes, sys, os
 from oracle.util import WINDOWS, error_wrap, getdict, ascii_str, LOG_ERROR
-
 
 class cudaDeviceProp(ctypes.Structure):
     _fields_ = [
