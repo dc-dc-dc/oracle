@@ -1,2 +1,5 @@
 .vscode
 out/
+venv
+build
+oracle.egg-info
