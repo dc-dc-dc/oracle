@@ -170,15 +170,15 @@ def nvml():
             error_wrap("nvmlDeviceGetMemoryInfo", _nvmlDeviceGetMemoryInfo(handle, ctypes.byref(_memory)))
             _power = ctypes.c_uint()
             error_wrap("nvmlDeviceGetPowerUsage", _nvmlDeviceGetPowerUsage(handle, ctypes.byref(_power)))
-            _infoCount = ctypes.c_uint();
-            _infos = ctypes.pointer(nvmlProcessInfo());
-            error_wrap("nvmlDeviceGetComputeRunningProcesses", _nvmlDeviceGetComputeRunningProcesses(handle, ctypes.byref(_infoCount), _infos));
-            for i in range(_infoCount.value):
-                if _infos[i].pid == 0: continue
-                _name = (ctypes.c_char * 256)()
-                error_wrap("nvmlSystemGetProcessName", _nvmlSystemGetProcessName(_infos[i].pid, _name, 256))
-                print(_name.value)
-                print(f"pid: {_infos[i].pid} usedGpuMemory: {_infos[i].usedGpuMemory}, name: {_name.value.decode('utf-8')}")
+            # _infoCount = ctypes.c_uint();
+            # _infos = ctypes.pointer(nvmlProcessInfo());
+            # error_wrap("nvmlDeviceGetComputeRunningProcesses", _nvmlDeviceGetComputeRunningProcesses(handle, ctypes.byref(_infoCount), _infos));
+            # for i in range(_infoCount.value):
+            #     if _infos[i].pid == 0: continue
+            #     _name = (ctypes.c_char * 256)()
+            #     error_wrap("nvmlSystemGetProcessName", _nvmlSystemGetProcessName(_infos[i].pid, _name, 256))
+            #     print(_name.value)
+            #     print(f"pid: {_infos[i].pid} usedGpuMemory: {_infos[i].usedGpuMemory}, name: {_name.value.decode('utf-8')}")
             res[i] = {
                 "utilization": getdict(_utilization),
                 "memory": getdict(_memory),
